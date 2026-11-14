@@ -172,7 +172,8 @@ canvas{display:block;position:fixed;inset:0}
 <div id="chap"><div class="cn" id="chN"></div><div class="ck" id="chK"></div><div class="ct" id="chT"></div><div class="cv" id="chV"></div><div class="cc" id="chC"></div></div>
 <div id="err">Não foi possível carregar o motor 3D. Verifique a conexão e recarregue a página.</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="three.min.js"></script>
+<script>if(!window.THREE)document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
 <script>
 (()=>{
 if(!window.THREE){document.getElementById('err').style.display='flex';return;}
@@ -1366,6 +1367,8 @@ function loop(now){requestAnimationFrame(loop);const rd=Math.min(.05,(now-last)/
   fxL=Math.max(0,fxL-rd*9);fxLight.intensity=fxL;flashV=Math.max(0,flashV-rd*2.5);
   dmgFlash-=rd*1.6;if(!paused){updParts(dt);updRings(dt);updSlashes(rd);}updAmbient(rd,rt);updBuddy(rd,rt);updCam(rd,rt);updNums(rd);updMarkers();updHud();updFX(rd);
   if(post&&!postOff)post.render();else renderer.render(scene,camera);if(++frameN===4)checkShaders();}
+window.__pauseGame=()=>{if(game==='play'&&!paused&&!busy)openInv('eq');};
+window.__back=()=>{if(!$('inv').classList.contains('hide'))closeInv();else if(!$('shrine').classList.contains('hide'))closeShrine();else if(game==='play'&&!paused&&!busy)openInv('eq');};
 requestAnimationFrame(loop);
 })();
 

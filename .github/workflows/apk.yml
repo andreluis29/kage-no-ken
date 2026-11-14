@@ -1,0 +1,58 @@
+name: Gerar APK Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Copiar o jogo para dentro do app (offline)
+        run: |
+          cp index.html android/app/src/main/assets/index.html
+          cp icon.png android/app/src/main/assets/icon.png
+          curl -fsSL https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js -o android/app/src/main/assets/three.min.js
+
+      - name: Compilar APK assinado
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Renomear APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk KageNoKen.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KageNoKen-apk
+          path: KageNoKen.apk
+
+      - name: Publicar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: Kage no Ken v1.${{ github.run_number }}
+          files: KageNoKen.apk
+          body: |
+            🗡️ **Kage no Ken — Lâmina das Sombras**
+
+            Baixe o `KageNoKen.apk` abaixo e instale no Android (permita "instalar apps desconhecidos" se o celular pedir).
+            O jogo roda offline, em tela cheia e na horizontal. O progresso fica salvo no aparelho.
