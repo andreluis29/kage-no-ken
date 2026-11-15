@@ -19,7 +19,9 @@ Cinco mundos abertos inspirados nas obras de **André Wenningkamp**:
 
 - **Combate:** combo de 4 golpes, golpe forte carregado, deflexão perfeita e contra-golpe, investida, mergulho aéreo e 6 artes da espada.
 - **Progressão:** katana, armadura e amuleto em 5 raridades, com atributos aleatórios, forja até +10, desmanche e relíquias únicas.
-- **Mundo:** exploração com santuários, baús, acampamentos e arenas com três provações.
+- **Mundo:** mapas abertos com raio de 200 m, 2 santuários, 14 acampamentos, 16 baús e minimapa, além de arenas com três provações.
+- **Masmorras:** duas por mundo, geradas por algoritmo, com salas, corredores, tochas e o Guardião das Profundezas no fim.
+- **Trajes:** 11 trajes desbloqueáveis por conquistas (vencer arenas, abrir baús, conquistar masmorras, usar o domínio, completar ciclos).
 - **Ultimate:** expansão de domínio 領域展開. Cada mundo tem o seu domínio: Céu dos Mil Pássaros, Maré da Mãe, Salão dos Espelhos da Verdade, Templo da Oração Silenciosa e Abismo: Eu e a Sombra.
 - **Visual:** shaders exagerados com bloom, raios de sol, contorno de tinta e aberração cromática. Também há modo deus.
 
