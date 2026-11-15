@@ -1,4 +1,5 @@
 plugins { id 'com.android.application' }
+def vc = (System.getenv('VERSION_CODE') ?: '1').toInteger()
 android {
     namespace 'com.andreluis29.kagenoken'
     compileSdk 34
@@ -6,8 +7,8 @@ android {
         applicationId 'com.andreluis29.kagenoken'
         minSdk 24
         targetSdk 34
-        versionCode (System.getenv('VERSION_CODE') ?: '1') as int
-        versionName "1." + (System.getenv('VERSION_CODE') ?: '0')
+        versionCode vc
+        versionName "1." + vc
     }
     signingConfigs {
         release {
