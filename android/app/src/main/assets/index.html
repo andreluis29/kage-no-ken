@@ -149,7 +149,7 @@ canvas{display:block;position:fixed;inset:0}
   <button class="b" id="bInv">袋</button>
   <button class="b big" id="bAtk" style="right:24px;bottom:112px">斬<small>ATACAR</small></button>
   <button class="b big" id="bGrd" style="right:112px;bottom:36px">守<small>DEFENDER</small></button>
-  <button class="b sm" id="bDodge" style="right:30px;bottom:34px">避<small>ESQUIVA</small></button>
+  <button class="b sm" id="bDodge" style="right:30px;bottom:34px">避<small>DASH</small></button>
   <button class="b sm" id="bHvy" style="right:118px;bottom:130px">重<small>FORTE</small></button>
   <button class="b sm" id="bJump" style="right:204px;bottom:22px">跳<small>PULO</small></button>
   <button class="b sm" id="bArt" style="right:34px;bottom:206px">技<small>ARTE</small></button>
@@ -709,7 +709,7 @@ const STATN={dmg:'Dano',post:'Postura',hp:'Vida',def:'Defesa',spd:'Vel. de ataqu
 const BASEU={dmg:'',post:'',hp:'',def:'%',spd:'%',spReg:'%',defl:'ms'};
 const AFF={dmg:{u:'%',r:[4,10]},post:{u:'%',r:[5,12]},hp:{u:'',r:[8,18]},def:{u:'%',r:[2,5]},spd:{u:'%',r:[3,7]},crit:{u:'%',r:[3,7]},critDmg:{u:'%',r:[15,30]},ls:{u:'%',r:[1,2.5]},spReg:{u:'%',r:[8,18]},defl:{u:'ms',r:[10,22]},pres:{u:'%',r:[4,10]},coin:{u:'%',r:[10,25]},heal:{u:'%',r:[8,18]}};
 const UNIQ=[
-  {id:'pena',slot:'amuleto',name:'Pena do Passarinho',desc:'Pulo duplo no ar e esquiva com recarga 40% menor.',base:{spReg:25,defl:25},aff:['spd','crit']},
+  {id:'pena',slot:'amuleto',name:'Pena do Passarinho',desc:'Pulo triplo e dash com recarga 40% menor.',base:{spReg:25,defl:25},aff:['spd','crit']},
   {id:'vela',slot:'armadura',name:'Vela da Mãe',desc:'Uma vez por vida: ao cair abaixo de 25% de vida, recupera 40%. Recomeçar.',base:{hp:55,def:9},aff:['hp','pres']},
   {id:'espelho',slot:'amuleto',name:'Espelho da Verdade',desc:'Deflexões perfeitas devolvem 60% do dano ao atacante.',base:{spReg:20,defl:40},aff:['post','defl']},
   {id:'rosario',slot:'armadura',name:'Rosário da Oração',desc:'A cabaça cura 60% a mais e ganha +1 carga.',base:{hp:40,def:12},aff:['heal','spReg']},
@@ -770,7 +770,7 @@ function updBuddy(dt,rt){const r=1.5+Math.sin(rt*.7)*.3,a=rt*1.25;const tgt=P.po
   buddy.position.lerp(tgt,1-Math.exp(-dt*6));const fl=Math.sin(rt*22)*.9;buddy.userData.wings[0].rotation.z=fl;buddy.userData.wings[1].rotation.z=-fl;
   const v=buddy.position.clone().sub(buddy.userData.prev);if(v.lengthSq()>1e-6)buddy.rotation.y=Math.atan2(v.x,v.z);buddy.userData.prev.copy(buddy.position);}
 function resetPlayer(pos,yaw){Object.assign(P,{vy:0,yaw,post:0,maxPost:100,postDelay:0,sp:30,state:'idle',t:0,iframes:0,dodgeCd:0,dodgeDir:new V(),guard:false,guardPressT:-9,walkPh:0,lunge:0,sp2:0,
-  airborne:false,jumps:0,mvId:null,hitIdx:0,queued:false,spin:0,heavyHeld:false,charge:0,lastPerfect:-9,dodgeEnd:-9,buffT:0,shadowQ:[],velaUsed:false,trail:false,mvSpd:1,healed:false});
+  airborne:false,jumps:0,vel:new V(),tv:new V(),jumpBuf:0,airDashed:false,airDash:false,flipT:-1,mvId:null,hitIdx:0,queued:false,spin:0,heavyHeld:false,charge:0,lastPerfect:-9,dodgeEnd:-9,buffT:0,shadowQ:[],velaUsed:false,trail:false,mvSpd:1,healed:false});
   P.pos.copy(pos);P.m.rig.rotation.set(0,0,0);P.m.rig.position.y=0;P.m.g.visible=true;}
 P.maxHp=0;P.hp=100;
 
@@ -850,12 +850,17 @@ function heavyUp(){P.heavyHeld=false;}
 function releaseHeavy(){P.heavyK=1.4+P.charge*1.9;P.heavyFull=P.charge>=.85;startMove('heavy');if(P.heavyFull){FX.ca=.02;shake(.15);}}
 function guardDown(){if(!canAct())return;P.guard=true;P.guardPressT=gt;if(P.state==='move'&&/^c\d$/.test(P.mvId)&&P.t>.1)endMove();if(P.state==='charge')P.state='idle';}
 function guardUp(){P.guard=false;}
-function doDodge(){if(!canAct()||P.dodgeCd>0||!['idle','move','charge'].includes(P.state))return;if(P.state==='move'&&!/^c\d$/.test(P.mvId))return;
-  const d=moveDir();if(d.length()<.2)d.copy(pFwd()).negate();P.dodgeDir.copy(d.normalize());endMove();
-  P.state='dodge';P.t=0;P.iframes=.3;P.dodgeCd=ST.uniq.has('pena')?.27:.45;sfx('swing');FX.zoom=Math.max(FX.zoom,.55);burst(P.pos.clone().add(new V(0,.15,0)),0x6a5a4a,10,3,.5,2,1.4,'solid');}
-function doJump(){if(!canAct()||!['idle','dodge'].includes(P.state))return;const maxJ=ST.uniq.has('pena')?2:1;
-  if(P.pos.y>.01&&P.jumps>=maxJ)return;if(P.pos.y<=.01)P.jumps=0;P.jumps++;P.vy=P.jumps>1?8.6:9.6;P.airborne=true;if(P.state==='dodge')P.state='idle';
-  burst(P.pos.clone().add(new V(0,.1,0)),P.jumps>1?0xfff6ea:0x6a5a4a,8,3,.5,2,1.3,P.jumps>1?'glow':'solid');}
+function doDodge(){if(!canAct()||P.dodgeCd>0||!['idle','move','charge','heal'].includes(P.state))return;if(P.state==='move'&&!/^c\d$/.test(P.mvId))return;
+  const air=P.pos.y>.3;if(air&&P.airDashed)return;P.airDash=air;if(air)P.airDashed=true;
+  const d=moveDir();if(d.length()<.2)d.copy(air?pFwd():pFwd().negate());P.dodgeDir.copy(d.normalize());if(air||d.length()>.2&&!lockT)P.yaw=Math.atan2(P.dodgeDir.x,P.dodgeDir.z);endMove();P.flipT=-1;P.m.rig.position.z=0;
+  P.state='dodge';P.t=0;P.iframes=.26;P.dodgeCd=ST.uniq.has('pena')?.2:.32;sfx('swing');FX.zoom=Math.max(FX.zoom,.55);burst(P.pos.clone().add(new V(0,.15,0)),0x6a5a4a,10,3,.5,2,1.4,'solid');}
+function doJump(){if(!canAct())return;P.jumpBuf=.14;tryJump();}
+function tryJump(){if(!['idle','dodge','charge'].includes(P.state))return;const maxJ=ST.uniq.has('pena')?3:2;
+  if(P.pos.y<=.01)P.jumps=0;if(P.jumps>=maxJ)return;P.jumps++;P.jumpBuf=0;P.airborne=true;
+  if(P.state==='dodge'||P.state==='charge'){P.state='idle';P.m.rig.rotation.x=0;}
+  const dir=moveDir();if(dir.length()>.2&&P.jumps>1){const v=Math.max(Math.hypot(P.vel.x,P.vel.z),7);P.vel.copy(dir.normalize()).multiplyScalar(v);if(!lockT)P.yaw=Math.atan2(dir.x,dir.z);}
+  if(P.jumps>1){P.vy=10.2;P.flipT=0;const c=P.pos.clone().add(new V(0,.6,0));burst(c,0xfff6ea,14,4,.45,0,1.5);shockwave(c,0xfff0d0,1.8,.3);sfx('swing');}
+  else{P.vy=11.4;burst(P.pos.clone().add(new V(0,.1,0)),0x6a5a4a,8,3,.5,2,1.3,'solid');}}
 function doArt(){if(!canAct()||P.state!=='idle')return;const a=ARTS.find(x=>x.id===SV.art);if(!a)return;
   if(P.sp<a.cost&&!GOD){toast('Espírito insuficiente ('+a.cost+')');return;}if(!GOD)P.sp-=a.cost;
   toast(a.kj+'  '+a.n.toUpperCase(),'#ffe08a');startMove(a.mv);}
@@ -975,25 +980,27 @@ function updProjs(dt){for(const p of projs){p.life-=dt;p.g.position.addScaledVec
 /* ---------- jogador ---------- */
 function updPlayer(dt,rt){
   P.t+=dt;P.iframes-=dt;P.dodgeCd-=dt;P.postDelay-=dt;P.buffT-=dt;
-  const m=P.m,dir=moveDir(),mag=dir.length();let sp=0,trailOn=false,trailCol=P.buffT>0?0xffd060:0xbfe0ff;
+  const m=P.m,dir=moveDir(),mag=dir.length();let sp=0,useVel=false,trailOn=false,trailCol=P.buffT>0?0xffd060:0xbfe0ff;
   if(!['dead','broken'].includes(P.state)&&P.postDelay<=0)P.post=Math.max(0,P.post-(P.guard?24:13)*dt);
   if(GOD){P.sp=100;P.hp=P.maxHp;P.post=0;P.gourd=gourdMax();}
   for(const s of P.shadowQ){s.t-=dt;if(s.t<=0&&!s.done){s.done=true;if(s.e.state!=='dead'){slashFx(chestOf(s.e),0x7a3aff,3);hitEnemy(s.e,s.dmg,s.pd,'shadow',{unblock:true});}}}
   P.shadowQ=P.shadowQ.filter(s=>!s.done);
   switch(P.state){
-    case'idle':{const base=P.guard?2.6:(mag>.92?7.6:6.4);sp=base*mag;if(mag>.05)P.pos.addScaledVector(dir,base*dt);
+    case'idle':{const base=P.guard?3:(mag>.9?9.8:7.4);P.tv.copy(dir).multiplyScalar(base);useVel=true;
       if(lockT&&lockT.state!=='dead'){const to=lockT.pos.clone().sub(P.pos);P.yaw=angTurn(P.yaw,Math.atan2(to.x,to.z),14*dt);}
-      else if(mag>.1)P.yaw=angTurn(P.yaw,Math.atan2(dir.x,dir.z),12*dt);
+      else if(mag>.1)P.yaw=angTurn(P.yaw,Math.atan2(dir.x,dir.z),20*dt);
       if(P.guard)pose(m,-1.25,.95,-.25,.35);else pose(m,-.5,0,0,.2);
       m.bladeMat.emissive.setHex(P.buffT>0?0x553300:0);if(sp>4&&Math.random()<dt*6&&P.pos.y<.05)burst(P.pos.clone().add(new V(0,.1,0)),0x5a4a3a,2,1.2,.4,1,1.1,'solid');break;}
     case'charge':{P.charge=Math.min(1,P.charge+dt);pose(m,-2.8,0,0,.3);const k=P.charge;m.bladeMat.emissive.setRGB(k*.7,k*.4,k*.1);
       if(k>=.85&&!P.chargeFlash){P.chargeFlash=true;sfx('parry');m.tipObj.getWorldPosition(_a);burst(_a,0xffd060,12,4,.35,0);shockwave(_a,0xffd060,1.4,.25);}
       if(Math.random()<dt*20){m.tipObj.getWorldPosition(_a);burst(_a,0xffb040,1,1,.3,-2,1);}
-      sp=1.5*mag;if(mag>.05)P.pos.addScaledVector(dir,1.5*dt);faceTarget(6);if(!P.heavyHeld||P.t>1.5)releaseHeavy();break;}
+      P.tv.copy(dir).multiplyScalar(1.8);useVel=true;faceTarget(6);if(!P.heavyHeld||P.t>1.5)releaseHeavy();break;}
     case'move':updMove(dt);trailOn=P.trail;if(P.mvId==='heavy')trailCol=P.heavyFull?0xffd9a0:0xffeedd;if(P.mvId==='flurry'||P.mvId==='truth')trailCol=0xc8a8ff;break;
-    case'dodge':{if(P.t<.24){P.pos.addScaledVector(P.dodgeDir,15*dt);burst(P.pos.clone().add(new V(rand(-.3,.3),rand(.4,2),rand(-.3,.3))),0x6a8cff,1,.5,.35,0,1.6);}
-      m.rig.rotation.x=P.t<.24?.35:0;if(P.t>.3){P.state='idle';m.rig.rotation.x=0;P.dodgeEnd=gt;}break;}
-    case'heal':{pose(m,-1.9,.6,-.3,.3);sp=1.2*mag;if(mag>.05)P.pos.addScaledVector(dir,1.2*dt);
+    case'dodge':{const k=P.t<.16;if(k){P.vel.copy(P.dodgeDir).multiplyScalar(25);if(P.airDash)P.vy=0;
+        for(let i=0;i<2;i++)burst(P.pos.clone().add(new V(rand(-.3,.3),rand(.3,2.1),rand(-.3,.3))),i?0xbfe0ff:0x6a8cff,1,.6,.32,0,1.7);}
+      else P.vel.copy(P.dodgeDir).multiplyScalar(11);
+      m.rig.rotation.x=k?.42:.12;if(P.t>.22){P.state='idle';m.rig.rotation.x=0;P.dodgeEnd=gt;}break;}
+    case'heal':{pose(m,-1.9,.6,-.3,.3);P.tv.copy(dir).multiplyScalar(1.6);useVel=true;
       if(P.t>.45&&!P.healed){P.healed=true;const h=Math.round(P.maxHp*.4*(1+ST.heal/100)*(ST.uniq.has('rosario')?1.6:1));P.hp=Math.min(P.maxHp,P.hp+h);
         dmgNum(P.pos.clone().add(new V(0,2.4,0)),'+'+h,'#7aff9a',true);burst(P.pos.clone().add(new V(0,1.2,0)),0x7aff9a,20,3,.8,-3,1.3);sfx('bell');}
       if(P.t>.85)P.state='idle';break;}
@@ -1001,13 +1008,22 @@ function updPlayer(dt,rt){
     case'broken':pose(m,.4,0,0,.2);m.rig.rotation.x=.35;if(P.t>1.3){P.state='idle';P.post=P.maxPost*.6;P.postDelay=.5;m.rig.rotation.x=0;}break;
     case'dead':m.rig.rotation.x=Math.max(-1.5,m.rig.rotation.x-dt*3);if(P.t>1.8&&game==='play')onDeath();break;
   }
-  if(!(P.state==='move'&&P.mvId==='plunge'))P.vy-=26*dt;
+  const air=P.pos.y>.01;
+  if(useVel){const acc=air?10:(P.tv.lengthSq()>.01?26:20);P.vel.x+=(P.tv.x-P.vel.x)*Math.min(1,acc*dt);P.vel.z+=(P.tv.z-P.vel.z)*Math.min(1,acc*dt);}
+  else if(P.state!=='dodge')P.vel.multiplyScalar(Math.pow(air?.3:.0008,dt));
+  P.pos.x+=P.vel.x*dt;P.pos.z+=P.vel.z*dt;sp=Math.hypot(P.vel.x,P.vel.z);
+  if(P.jumpBuf>0){P.jumpBuf-=dt;tryJump();}
+  if(!(P.state==='move'&&P.mvId==='plunge')&&!(P.state==='dodge'&&P.airDash&&P.t<.16)){P.vy-=(P.vy>0?25:42)*dt;if(P.vy<-34)P.vy=-34;}
   P.pos.y+=P.vy*dt;
-  if(P.pos.y<0){const wasAir=P.airborne;P.pos.y=0;P.vy=0;P.airborne=false;P.jumps=0;
+  if(P.pos.y<0){const wasAir=P.airborne;P.pos.y=0;P.vy=0;P.airborne=false;P.jumps=0;P.airDashed=false;P.airDash=false;if(wasAir){P.land=.12;}
     if(P.state==='move'&&P.mvId==='plunge')plungeLand();else if(wasAir&&P.state!=='move')burst(P.pos.clone().add(new V(0,.1,0)),0x6a5a4a,8,3,.5,2,1.2,'solid');}
   const R=MODE==='world'?WORLD_R:33,r=Math.hypot(P.pos.x,P.pos.z);if(r>R){P.pos.x*=R/r;P.pos.z*=R/r;}
   m.g.rotation.y=P.yaw+P.spin;P.walkPh+=sp*dt*2.2;walk(m,P.walkPh,(P.state==='idle'||P.state==='heal')&&sp>.5?Math.min(1,sp/5):0);
   if(P.pos.y>.05){m.legs[0].rotation.x=-.7;m.legs[1].rotation.x=.3;m.knees[0].rotation.x=1.2;m.knees[1].rotation.x=.5;}
+  if(P.state==='idle'&&P.flipT<0)m.rig.rotation.x+=((P.pos.y<.05?sp/9.8*.17:.05)-m.rig.rotation.x)*Math.min(1,dt*10);
+  if(P.land>0){P.land-=dt;m.rig.position.y-=.12*Math.sin(P.land/.12*Math.PI);}
+  if(P.flipT>=0){P.flipT+=dt;const a=TAU*ease(P.flipT/.42);m.rig.rotation.x=a;m.rig.position.y=1.1-1.1*Math.cos(a);m.rig.position.z=-1.1*Math.sin(a);
+    if(P.flipT>=.42||P.pos.y<.01){P.flipT=-1;m.rig.rotation.x=0;m.rig.position.z=0;}}
   P.sp2+=((P.state==='dodge'?15:sp)-P.sp2)*Math.min(1,dt*6);animCloth(m,rt,P.sp2);
   updTrail(m.trail,m,dt,trailOn,trailCol);}
 function updMove(dt){const d=MOVES[P.mvId],m=P.m,t=P.t*P.mvSpd,fw=pFwd();
@@ -1095,15 +1111,15 @@ const lockRing=new THREE.Group();
  const dot=new THREE.Mesh(new THREE.CircleGeometry(.06,16),new THREE.MeshBasicMaterial({color:0xffe0c0,depthTest:false}));
  lockRing.add(r1,dot);const g=glow(0xff3a2a,.9,.6);g.material.depthTest=false;lockRing.add(g);lockRing.traverse(o=>o.renderOrder=10);}
 scene.add(lockRing);
-function updCam(dt,rt){const tgt=P.pos.clone().add(new V(0,1.65,0));
+function updCam(dt,rt){const tgt=P.pos.clone().add(new V(0,1.65,0));if(P.vel){tgt.x+=P.vel.x*.1;tgt.z+=P.vel.z*.1;}
   if(lockT&&lockT.state==='dead')lockT=null;
   if(game==='menu')camYaw+=dt*.12;else if(lockT){const to=lockT.pos.clone().sub(P.pos);camYaw+=angDiff(camYaw,Math.atan2(to.x,to.z))*Math.min(1,dt*5);}
   const f=new V(Math.sin(camYaw),0,Math.cos(camYaw)),rgt=new V(-Math.cos(camYaw),0,Math.sin(camYaw));
   const cp=tgt.clone().addScaledVector(f,-camDist*Math.cos(camPitch)).addScaledVector(rgt,.55);cp.y+=camDist*Math.sin(camPitch);if(cp.y<.4)cp.y=.4;
-  camera.position.lerp(cp,1-Math.exp(-dt*12));
+  camera.position.lerp(cp,1-Math.exp(-dt*14));
   if(shk>0){camera.position.add(new V(rand(-1,1),rand(-1,1),rand(-1,1)).multiplyScalar(shk*.25));shk=Math.max(0,shk-dt*2.2);}
   const look=tgt.clone().addScaledVector(rgt,.55);if(lockT)look.lerp(chestOf(lockT),.3);camera.lookAt(look);
-  fovKick*=Math.pow(.02,dt);const fv=60-fovKick+(P.state==='dodge'?4:0);if(Math.abs(camera.fov-fv)>.05){camera.fov+=(fv-camera.fov)*Math.min(1,dt*10);camera.updateProjectionMatrix();}
+  fovKick*=Math.pow(.02,dt);const fv=60-fovKick+(P.state==='dodge'?6:0)+(P.vel?Math.min(4,Math.hypot(P.vel.x,P.vel.z)*.35):0);if(Math.abs(camera.fov-fv)>.05){camera.fov+=(fv-camera.fov)*Math.min(1,dt*10);camera.updateProjectionMatrix();}
   sky.position.copy(camera.position);sun.position.copy(P.pos).addScaledVector(LDIR,70);sun.target.position.copy(P.pos);
   if(lockT){lockRing.visible=true;lockRing.position.copy(chestOf(lockT));lockRing.quaternion.copy(camera.quaternion);lockRing.rotateZ(rt*1.5);lockRing.scale.setScalar(1+Math.sin(rt*6)*.08);}else lockRing.visible=false;}
 
@@ -1244,8 +1260,8 @@ $('start').onclick=()=>{if(existing&&!newConfirm){newConfirm=true;$('start').tex
 $('respawn').onclick=respawn;
 $('bInv').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(game==='play'&&!paused&&!busy)openInv('eq');});
 $('help').innerHTML=TOUCH?
- '<b>Joystick</b>: mover (empurre tudo p/ correr) · <b>arraste</b> a tela: câmera<br><b>斬</b> combo de 4 golpes · <b>重</b> segure p/ carregar o golpe forte (carga cheia = imbloqueável)<br><b>守</b> segure p/ bloquear · toque <b>no instante do golpe</b> = DEFLEXÃO → <b>斬</b> logo depois = CONTRA-GOLPE<br><b>避</b> esquiva → <b>斬</b> = investida · <b>跳</b> no ar → <b>斬</b> = mergulho · <b style="color:#ff4a3a">危</b>: PULE!<br><b>技</b> arte da espada (Espírito) · <b>薬</b> cabaça · <b>◎</b> travar · <b>袋</b> inventário<br>Explore o mundo, abra baús 箱, descanse no santuário 祠 e entre na arena 闘.'
-:'<b>WASD</b> mover · <b>Mouse</b> câmera · <b>Clique esq./J</b> combo · <b>E</b> (segure) golpe forte · <b>Clique dir./K</b> defender/defletir<br><b>Shift</b> esquiva · <b>Espaço</b> pulo (no ar + ataque = mergulho) · <b>Q</b> arte · <b>R</b> cabaça · <b>F</b> travar<br><b>X</b> interagir · <b>I/Tab</b> inventário · <b style="color:#ffd060">G</b> modo deus<br>Deflexão perfeita → ataque = CONTRA-GOLPE · esquiva → ataque = INVESTIDA.';
+ '<b>Joystick</b>: mover (empurre tudo p/ correr) · <b>arraste</b> a tela: câmera<br><b>斬</b> combo de 4 golpes · <b>重</b> segure p/ carregar o golpe forte (carga cheia = imbloqueável)<br><b>守</b> segure p/ bloquear · toque <b>no instante do golpe</b> = DEFLEXÃO → <b>斬</b> logo depois = CONTRA-GOLPE<br><b>避</b> dash (funciona no ar) → <b>斬</b> = investida · <b>跳</b> pulo duplo com mortal · no ar → <b>斬</b> = mergulho · <b style="color:#ff4a3a">危</b>: PULE!<br><b>技</b> arte da espada (Espírito) · <b>薬</b> cabaça · <b>◎</b> travar · <b>袋</b> inventário<br>Explore o mundo, abra baús 箱, descanse no santuário 祠 e entre na arena 闘.'
+:'<b>WASD</b> mover · <b>Mouse</b> câmera · <b>Clique esq./J</b> combo · <b>E</b> (segure) golpe forte · <b>Clique dir./K</b> defender/defletir<br><b>Shift</b> dash (também no ar) · <b>Espaço</b> pulo duplo (no ar + ataque = mergulho) · <b>Q</b> arte · <b>R</b> cabaça · <b>F</b> travar<br><b>X</b> interagir · <b>I/Tab</b> inventário · <b style="color:#ffd060">G</b> modo deus<br>Deflexão perfeita → ataque = CONTRA-GOLPE · esquiva → ataque = INVESTIDA.';
 
 /* ---------- input ---------- */
 const inp={mx:0,my:0,keys:{}};
